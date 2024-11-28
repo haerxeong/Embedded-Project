@@ -3,6 +3,7 @@ import board
 from digitalio import DigitalInOut, Direction, Pull
 from PIL import Image, ImageDraw, ImageFont
 from adafruit_rgb_display import st7789
+import random
 
 def character_select(disp, width, height):
     # 캐릭터 이미지 로드
@@ -97,6 +98,7 @@ def main(disp, width, height, character):
     ground = Image.open("../assets/ground.png").resize((width, 50))
 
     # 폰트 설정
+    global font
     font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 15)
 
     # 게임 루프
@@ -163,13 +165,12 @@ def main(disp, width, height, character):
 
         time.sleep(0.01)
 
-def monster_attack():
-    monster_attack_image = Image.open('../assets/moster_attack_effect.png').convert("RGBA").resize((80, 80))
-
 def attack(disp, width, height, character, character_size, ground):
     monster_size = 70
 
     monster = Image.open("../assets/kimera.png").convert("RGBA").resize((monster_size, monster_size))
+    monster_attack_image = Image.open('../assets/moster_attack_effect.png').convert("RGBA").resize((80, 80))
+    
     shield_image = Image.open("../assets/shield.png").convert("RGBA").resize((character_size + 50, character_size + 50))
     attack_image = Image.open("../assets/attack_effect1.jpg").convert("RGBA").resize((80, 80))
     image = Image.new("RGBA", (width, height))
@@ -191,13 +192,28 @@ def attack(disp, width, height, character, character_size, ground):
     shield_duration = 0
     attack_x = character_x #+ character_size  # 공격 이미지의 초기 x 위치
 
+    # 몬스터 움직임 관련 변수
+    monster_move_direction = 1  # 1: 오른쪽, -1: 왼쪽
+    monster_move_timer = 0
+    monster_move_interval = random.randint(10, 50)  # 몬스터 방향 변경 간격
+
+    # 몬스터 공격 관련 변수
+    monster_attack_timer = 0
+    monster_attack_interval = random.randint(10, 30)  # 몬스터 공격 간격
+    monster_attack_active = False
+    monster_attack_x = monster_x
+    monster_attack_y = monster_y
+
+    player_hp = 100  # 플레이어 체력
+    monster_damage = 10  # 몬스터 공격 데미지
+    
     while True:
         # 입력 처리
         if not button_L.value:
             character_x -= move_speed
         if not button_R.value:
             character_x += move_speed
-        if not button_U.value:
+        if not button_U.value and not is_jumping:
             is_jumping = True
             velocity_y = -jump_speed
 
@@ -206,6 +222,7 @@ def attack(disp, width, height, character, character_size, ground):
             character_x = 0
         if character_x > width - character.width:
             character_x = width - character.width
+        # character_x = max(0, min(character_x, width - character.width))
 
         # y 좌표 제한
         if character_y < 0:
@@ -220,6 +237,50 @@ def attack(disp, width, height, character, character_size, ground):
                 character_y = height - 50 - character_size
                 is_jumping = False
                 velocity_y = 0
+
+        # 몬스터 움직임 로직
+        monster_move_timer += 1
+        if monster_move_timer >= monster_move_interval:
+            monster_move_direction *= -1  # 방향 변경
+            monster_move_timer = 0
+            monster_move_interval = random.randint(10, 50)
+            print("Monster Direction Changed!")
+
+        # 몬스터 이동
+        monster_x += monster_move_direction * 5
+        monster_x = max(width - monster_size * 2, min(monster_x, width - monster_size))
+
+        # 몬스터 공격 로직
+        monster_attack_timer += 1
+        if monster_attack_timer >= monster_attack_interval:
+            monster_attack_active = True
+            monster_attack_x = monster_x
+            monster_attack_y = monster_y
+            monster_attack_timer = 0
+            monster_attack_interval = random.randint(10, 30)
+            print("Monster Attack!")
+
+        # 몬스터 공격 이동
+        if monster_attack_active:
+            monster_attack_x -= 10  # 공격 이미지 이동 속도
+            print(f"Monster Attack: {monster_attack_x}")
+
+            # 공격과 캐릭터 충돌 체크
+            if (monster_attack_x < character_x + character_size and 
+                monster_attack_x + 80 > character_x and 
+                monster_attack_y < character_y + character_size and 
+                monster_attack_y + 80 > character_y):
+                
+                # 방어 상태 체크
+                if not is_shielding:
+                    player_hp -= monster_damage
+                    print(f"Player HP: {player_hp}")
+
+                monster_attack_active = False
+
+            # 공격이 화면 왼쪽 끝에 도달하면 비활성화
+            if monster_attack_x < 0:
+                monster_attack_active = False
 
         # 공격 및 방패 처리
         if is_attacking:
@@ -246,6 +307,10 @@ def attack(disp, width, height, character, character_size, ground):
         # 오른쪽에 monster 이미지 표시
         image.paste(monster, (monster_x, monster_y), mask=monster)  
 
+        # 몬스터 공격 이미지 그리기
+        if monster_attack_active:
+            image.paste(monster_attack_image, (monster_attack_x, monster_attack_y), mask=monster_attack_image)
+
         if is_shielding:
             image.paste(
                 shield_image,
@@ -267,6 +332,18 @@ def attack(disp, width, height, character, character_size, ground):
             is_shielding = True
             shield_duration = 5  # 방패 지속 시간 (프레임 수)
             print("Shield!")
+
+        # HP 표시
+        hp_text = f"HP: {player_hp}"
+        draw.text((10, 10), hp_text, fill=(255, 255, 255), font=font)
+
+        disp.image(image)
+        time.sleep(0.01)
+
+        # 게임 오버 체크
+        if player_hp <= 0:
+            print("Game Over!")
+            break
 
         disp.image(image)
         time.sleep(0.01)
