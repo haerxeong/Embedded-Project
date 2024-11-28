@@ -38,6 +38,7 @@ def character_select(disp, width, height):
         for i in range(row1):
             x_position = (width // 2 - ((row1 * (char_width + margin)) - margin)) // 2 + i * (char_width + margin) + 50 # 50은 여백
             y_position = height // 3 - char_height // 2 + 20 # 20은 여백
+            
             if i == selected_index:  # 선택된 캐릭터 강조
                 draw.rectangle(
                     (x_position - 5, y_position - 5, x_position + char_width + 5, y_position + char_height + 5),
@@ -84,11 +85,10 @@ def main(disp, width, height, character):
     character_x = 0  # 초기 위치
     character_y = height - 50 - character_size  # 바닥 이미지 위에 위치하도록 캐릭터 높이만큼 뺌
     move_speed = 20  # 이동 속도 증가
-    jump_speed = 10  # Reduced from 15
-    gravity = 0.5    # Reduced from 1 for smoother descent
-    max_jump_height = 100  # Add a maximum jump height limit
+    jump_speed = 30  # 점프 초기 속도
+    gravity = 10   # 중력 가속도
     is_jumping = False
-    jump_velocity = 0
+    velocity_y = 0  # 캐릭터의 수직 속도
 
     sub_character_x = width - sub_character_size
     sub_character_y = height - 50 - sub_character_size + 10
@@ -97,7 +97,7 @@ def main(disp, width, height, character):
     ground = Image.open("../assets/ground.png").resize((width, 50))
 
     # 폰트 설정
-    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 10)
+    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 15)
 
     # 게임 루프
     while True:
@@ -106,9 +106,9 @@ def main(disp, width, height, character):
             character_x -= move_speed
         if not button_R.value:
             character_x += move_speed
-        if not button_U.value and not is_jumping:
+        if not button_U.value:
             is_jumping = True
-            jump_velocity = -jump_speed
+            velocity_y = -jump_speed # 점프 초기 속도
 
         # 캐릭터가 화면 밖으로 나가지 않도록 x 좌표 제한
         if character_x < 0:
@@ -116,16 +116,19 @@ def main(disp, width, height, character):
         if character_x > width - character.width:
             character_x = width - character.width
 
+        # y 좌표 제한
+        if character_y < 0:
+            character_y = 0
+
         # 점프 처리
         if is_jumping:
-            character_y += jump_velocity
-            jump_velocity += gravity
+            velocity_y += gravity
+            character_y += velocity_y
+
             if character_y >= height - 50 - character_size:  # 바닥 이미지 위에 위치하도록 설정
                 character_y = height - 50 - character_size
                 is_jumping = False
-            elif character_y < 0:  # 캐릭터가 화면을 벗어나지 않도록 y 좌표 제한
-                character_y = 0
-                jump_velocity = 0
+                velocity_y = 0
 
         # 화면 그리기
         draw.rectangle((0, 0, width, height), outline=0, fill=(135, 206, 235))  # 하늘색 배경
@@ -160,12 +163,15 @@ def main(disp, width, height, character):
 
         time.sleep(0.01)
 
+def monster_attack():
+    monster_attack_image = Image.open('../assets/moster_attack_effect.png').convert("RGBA").resize((80, 80))
+
 def attack(disp, width, height, character, character_size, ground):
     monster_size = 70
 
     monster = Image.open("../assets/kimera.png").convert("RGBA").resize((monster_size, monster_size))
     shield_image = Image.open("../assets/shield.png").convert("RGBA").resize((character_size + 50, character_size + 50))
-    attack_image = Image.open("../assets/attack_effect1.png").convert("RGBA").resize((80, 80))
+    attack_image = Image.open("../assets/attack_effect1.jpg").convert("RGBA").resize((80, 80))
     image = Image.new("RGBA", (width, height))
     draw = ImageDraw.Draw(image)
     
@@ -175,10 +181,11 @@ def attack(disp, width, height, character, character_size, ground):
     monster_y = height - 50 - monster_size
 
     move_speed = 20
-    jump_speed = 30
-    gravity = 2
+    jump_speed = 30  
+    gravity = 10   
     is_jumping = False
-    jump_velocity = 0
+    velocity_y = 0  
+
     is_shielding = False
     is_attacking = False
     shield_duration = 0
@@ -190,9 +197,9 @@ def attack(disp, width, height, character, character_size, ground):
             character_x -= move_speed
         if not button_R.value:
             character_x += move_speed
-        if not button_U.value and not is_jumping:
+        if not button_U.value:
             is_jumping = True
-            jump_velocity = -jump_speed
+            velocity_y = -jump_speed
 
         # 캐릭터가 화면 밖으로 나가지 않도록 x 좌표 제한
         if character_x < 0:
@@ -200,16 +207,19 @@ def attack(disp, width, height, character, character_size, ground):
         if character_x > width - character.width:
             character_x = width - character.width
 
+        # y 좌표 제한
+        if character_y < 0:
+            character_y = 0
+
         # 점프 처리
         if is_jumping:
-            character_y += jump_velocity
-            jump_velocity += gravity
+            velocity_y += gravity
+            character_y += velocity_y
+
             if character_y >= height - 50 - character_size:  # 바닥 이미지 위에 위치하도록 설정
                 character_y = height - 50 - character_size
                 is_jumping = False
-            elif character_y < 0:  # 캐릭터가 화면을 벗어나지 않도록 y 좌표 제한
-                character_y = 0
-                jump_velocity = 0
+                velocity_y = 0
 
         # 공격 및 방패 처리
         if is_attacking:
@@ -316,6 +326,8 @@ backlight.value = True
 # 그리기 위한 빈 이미지 생성
 width = disp.width
 height = disp.height
+print(f"width, height = {width}, {height}")
+
 image = Image.new("RGBA", (width, height))
 draw = ImageDraw.Draw(image)
 
