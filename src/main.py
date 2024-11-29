@@ -5,6 +5,13 @@ from PIL import Image, ImageDraw, ImageFont
 from adafruit_rgb_display import st7789
 import random
 
+def game_end(width, height, status):
+    draw.rectangle((0, 0, width, height), fill=(255, 255, 255))  # 배경 흰색
+    if status == "clear":
+        draw.text((width // 2 - 50, height // 2 - 10), "Game Clear!", fill="black")
+    elif status == "over":
+        draw.text((width // 2 - 50, height // 2 - 10), "Game Over!", fill="red")
+
 def character_select(disp, width, height):
     # 캐릭터 이미지 로드
     characters = [
@@ -205,7 +212,9 @@ def attack(disp, width, height, character, character_size, ground):
     monster_attack_y = monster_y
 
     player_hp = 100  # 플레이어 체력
+    monster_hp = 100  # 몬스터 체력
     monster_damage = 10  # 몬스터 공격 데미지
+    attack_damage = 20  # 공격 데미지
     
     while True:
         # 입력 처리
@@ -286,6 +295,7 @@ def attack(disp, width, height, character, character_size, ground):
         if is_attacking:
             attack_x += 15  # 공격 이미지가 왼쪽으로 이동
             if attack_x > monster_x - monster_size:  # `monster` 위치에 도달하면 멈춤
+                monster_hp -= attack_damage
                 is_attacking = False
                 # attack_x = character_x + character_size  # 공격 이미지 초기화..를 아래로 옮겼더니 여러번 됨
 
@@ -333,16 +343,27 @@ def attack(disp, width, height, character, character_size, ground):
             shield_duration = 5  # 방패 지속 시간 (프레임 수)
             print("Shield!")
 
-        # HP 표시
+        # 캐릭터 HP 표시
         hp_text = f"HP: {player_hp}"
         draw.text((10, 10), hp_text, fill=(255, 255, 255), font=font)
+
+        # 몬스터 HP 표시
+        hp_text = f"HP: {monster_hp}"
+        draw.text((width - 70, 10), hp_text, fill="red", font=font)
 
         disp.image(image)
         time.sleep(0.01)
 
+        # 게임 클리어 체크
+        if monster_hp <= 0:
+            print("Game Clear!")
+            game_end(width, height, "clear")
+            break
+
         # 게임 오버 체크
         if player_hp <= 0:
             print("Game Over!")
+            game_end(width, height, "over")
             break
 
         disp.image(image)
