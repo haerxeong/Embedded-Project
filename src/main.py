@@ -5,12 +5,21 @@ from PIL import Image, ImageDraw, ImageFont
 from adafruit_rgb_display import st7789
 import random
 
-def game_end(width, height, status):
+def game_end(disp, width, height, status):
+    image = Image.new("RGBA", (width, height))
+    draw = ImageDraw.Draw(image)
     draw.rectangle((0, 0, width, height), fill=(255, 255, 255))  # 배경 흰색
     if status == "clear":
-        draw.text((width // 2 - 50, height // 2 - 10), "Game Clear!", fill="black")
+        draw.text((width // 2 - 50, height // 2 - 10), "Game Clear!", fill="black", font=font)
     elif status == "over":
-        draw.text((width // 2 - 50, height // 2 - 10), "Game Over!", fill="red")
+        draw.text((width // 2 - 50, height // 2 - 10), "Game Over!", fill="red", font=font)
+    draw.text((width // 2 - 50, height // 2 + 20), "Press A to Restart", fill="black", font=font)
+    disp.image(image)
+
+    while True:
+        if not button_A.value:
+            return  # A 버튼이 눌리면 함수 종료
+        time.sleep(0.1)
 
 def character_select(disp, width, height):
     # 캐릭터 이미지 로드
@@ -357,13 +366,13 @@ def attack(disp, width, height, character, character_size, ground):
         # 게임 클리어 체크
         if monster_hp <= 0:
             print("Game Clear!")
-            game_end(width, height, "clear")
+            game_end(disp, width, height, "clear")
             break
 
         # 게임 오버 체크
         if player_hp <= 0:
             print("Game Over!")
-            game_end(width, height, "over")
+            game_end(disp, width, height, "over")
             break
 
         disp.image(image)
