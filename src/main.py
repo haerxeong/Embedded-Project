@@ -18,8 +18,8 @@ class Character:
         self.is_attacking = False
         self.shield_duration = 3
         self.is_shielding = False
-        self.move_speed = 20
-        self.jump_speed = 30
+        self.move_speed = 10
+        self.jump_speed = 20
         self.gravity = 10
         self.is_jumping = False
         self.velocity_y = 0
@@ -33,18 +33,35 @@ class Character:
     def gain_experience(self, amount):
         self.experience += amount
         if self.experience >= self.experience_to_next_level:
-            self.level_up()
+            # self.level_up()
+            pass
 
     def level_up(self):
         self.level += 1
         self.experience = 0
         self.experience_to_next_level *= 1.5
-        self.hp += 20
+        self.hp += 5
         self.attack_damage += 5
         self.move_speed += 2
         self.jump_speed += 5
         self.shield_duration += 1
+
+        level_up_image = Image.open("../assets/level_up.png").convert("RGBA").resize((240, 240))
+        image.paste(level_up_image, (0, 0), mask=level_up_image)
+
+        font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size=20)
+        draw = ImageDraw.Draw(image)
+        text = f"{self.level}"
+        text_width, text_height = draw.textbbox((0, 0), text, font=font)[2:]
+        draw.text(((width - text_width) // 2, (height - text_height) - 70), text, font=font, fill="black")
+
+        disp.image(image)
         print(f"Level Up! New Level: {self.level}")
+
+        while True:
+            if not button_A.value:
+                return  # A 버튼이 눌리면 함수 종료
+            time.sleep(0.1)
 
 class Monster:
     def __init__(self, image_path, size):
@@ -76,18 +93,18 @@ class Monster:
         self.attack_interval = max(50, self.attack_interval - 20)
         print(f"Monster Level Up! New HP: {self.hp}")
 
-def save_record(clear_time):
+def save_record(level):
     with open('game_records.txt', 'a') as f:
-        f.write(f"{clear_time.total_seconds()}\n")
+        f.write(f"{level}\n")
 
 def load_records():
     if not os.path.exists('game_records.txt'):
         return []
     with open('game_records.txt', 'r') as f:
         records = f.readlines()
-    records = [float(record.strip()) for record in records if record.strip()]
-    top_three_records = sorted(records)[:3]
-    return [round(record, 2) for record in top_three_records]
+    records = [int(record.strip()) for record in records if record.strip()]
+    top_three_records = sorted(records, reverse=True)[:3]
+    return top_three_records
 
 def draw_start_screen(disp, width, height):
     start_image = Image.open("../assets/start_screen.png").convert("RGBA").resize((width, height))
@@ -99,7 +116,7 @@ def draw_start_screen(disp, width, height):
     # 기록 표시 - 오른쪽 아래에 정렬
     top_three_records = load_records()
     for i, record in enumerate(top_three_records):
-        text = f"{i+1}: {record}s"
+        text = f"{i+1}: Level {record}"
         bbox = draw.textbbox((0, 0), text, font=font)
         text_width = bbox[2] - bbox[0]
         text_height = bbox[3] - bbox[1]
@@ -262,14 +279,18 @@ def main(disp, width, height, character):
             character.y + character.size[1] > sub_character_y):
 
             # 미션
-            image.paste(mission_image, (0, 0), mask=mission_image)
+            if character.level == 1:
+                image.paste(mission_image, (0, 0), mask=mission_image)
+            else:
+                # image.paste(new_mission_image, (0, 0), mask=mission_image)
+                pass
 
             # A 버튼이 눌렸는지 확인
             if not button_A.value:
                 result = attack(disp, width, height, character, character_size, ground)
                 if result in ["clear", "over"]:
                     if game_end(disp, width, height, result):
-                        return  # 메인으로 돌아가기
+                        continue  # 처음으로 돌아가기
                     
         disp.image(image)
 
@@ -450,6 +471,7 @@ def attack(disp, width, height, character, character_size, ground):
         # 게임 클리어 체크
         if monster.hp <= 0:
             print("Game Clear!")
+            character.level_up() # 레벨업
             return "clear"
 
         # 게임 오버 체크
@@ -457,7 +479,7 @@ def attack(disp, width, height, character, character_size, ground):
             print("Game Over!")
             game_end(disp, width, height, "over")
             character.clear_time = datetime.datetime.now() - character.start_time
-            save_record(character.clear_time)
+            save_record(character.level)  # 레벨 저장
             return "over"
 
         disp.image(image)
