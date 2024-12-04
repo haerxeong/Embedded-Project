@@ -237,6 +237,7 @@ def main(disp, width, height, character):
 
     # 임무 전달 이미지
     mission_image = Image.open("../assets/ment.png").convert("RGBA").resize((width, 50))
+    new_mission_image = Image.open("../assets/new_mission.png").convert("RGBA").resize((width, 50))
 
     # 게임 루프
     while True:
@@ -248,7 +249,6 @@ def main(disp, width, height, character):
         if not button_U.value:
             character.is_jumping = True
             character.velocity_y = -character.jump_speed
-            print("jump!")
 
         # 캐릭터가 화면 밖으로 나가지 않도록 x 좌표 제한
         if character.x < 0:
@@ -281,16 +281,26 @@ def main(disp, width, height, character):
             # 미션
             if character.level == 1:
                 image.paste(mission_image, (0, 0), mask=mission_image)
-            else:
-                # image.paste(new_mission_image, (0, 0), mask=mission_image)
-                pass
 
-            # A 버튼이 눌렸는지 확인
-            if not button_A.value:
-                result = attack(disp, width, height, character, character_size, ground)
-                if result in ["clear", "over"]:
-                    if game_end(disp, width, height, result):
-                        continue  # 처음으로 돌아가기
+                # A 버튼이 눌렸는지 확인
+                if not button_A.value:
+                    result = attack(disp, width, height, character, character_size, ground)
+                    if result in ["clear", "over"]:
+                        if game_end(disp, width, height, result):
+                            continue  # 처음으로 돌아가기
+            else:
+                image.paste(new_mission_image, (0, 0), mask=mission_image)
+
+                if not button_A.value:
+                    result = weedCleanup(disp, width, height, character)
+                    if result in ["clear", "over"]:
+                        if game_end(disp, width, height, result):
+                            continue  # 처음으로 돌아가기
+                elif not button_B.value:
+                    result = attack(disp, width, height, character, character_size, ground)
+                    if result in ["clear", "over"]:
+                        if game_end(disp, width, height, result):
+                            continue
                     
         disp.image(image)
 
@@ -498,6 +508,107 @@ def game_end(disp, width, height, status):
             return True
         time.sleep(0.1)
 
+def weedCleanup(disp, width, height, character):
+    # 잡초 이미지 로드
+    weed_image = Image.open("../assets/weed.png").convert("RGBA").resize((30, 30))
+    
+    # 잡초 위치 리스트 생성
+    weeds = []
+    for _ in range(10):  # 10개의 잡초 생성
+        x = random.randint(0, width - 30)
+        y = random.randint(0, height - 30)
+        weeds.append([x, y])
+
+    start_time = time.time()
+    score = 0  # 초기 점수
+
+    # 캐릭터 초기 위치 설정
+    character.y = height - character.size[1]
+
+    while True:
+        # 화면 초기화
+        image = Image.new("RGBA", (width, height), (135, 206, 235, 255))  # 하늘색 배경
+        draw = ImageDraw.Draw(image)
+
+        # 잡초 그리기
+        for weed in weeds:
+            image.paste(weed_image, (weed[0], weed[1]), mask=weed_image)
+
+        # 캐릭터 그리기
+        image.paste(character.image, (character.x, character.y), mask=character.image)
+
+        # 입력 처리
+        if not button_L.value:
+            character.x -= character.move_speed
+        if not button_R.value:
+            character.x += character.move_speed
+        if not button_U.value:
+            character.is_jumping = True
+            character.velocity_y = -character.jump_speed
+
+        # 캐릭터가 화면 밖으로 나가지 않도록 x 좌표 제한
+        if character.x < 0:
+            character.x = 0
+        if character.x > width - character.size[0]:
+            character.x = width - character.size[0]
+
+        if character.y < 0:
+            character.y = 0
+
+        # 점프 처리
+        if character.is_jumping:
+            character.velocity_y += character.gravity
+            character.y += character.velocity_y
+
+            if character.y >= height - character.size[1]:  # 바닥 이미지 위에 위치하도록 설정
+                character.y = height - character.size[1]
+                character.is_jumping = False
+                character.velocity_y = 0
+
+        # 잡초와 캐릭터 충돌 체크
+        i = 0
+        while i < len(weeds):
+            weed = weeds[i]
+            if (character.x < weed[0] + 30 and
+                character.x + character.size[0] > weed[0] and
+                character.y < weed[1] + 30 and
+                character.y + character.size[1] > weed[1]):
+                del weeds[i]
+                score += 1  # 잡초 제거 시 점수 증가
+            else:
+                i += 1
+
+        # 25초까지 랜덤하게 잡초 추가
+        if time.time() - start_time <= 25:
+            if random.random() < 0.1:  # 10% 확률로 새로운 잡초 추가
+                x = random.randint(0, width - 30)
+                y = random.randint(0, height - 30)
+                weeds.append([x, y])
+
+         # 남은 시간 계산
+        elapsed_time = time.time() - start_time
+        remaining_time = max(0, 30 - elapsed_time)
+
+        # 남은 시간 표시
+        time_text = f"Time: {remaining_time:.1f}s"
+        draw.text((10, 10), time_text, fill=(255, 255, 255), font=font)
+
+        # 현재 점수 표시
+        score_text = f"Score: {score}"
+        draw.text((width - 100, 10), score_text, fill=(255, 255, 255), font=font)
+
+        # 모든 잡초를 제거하면 클리어
+        if len(weeds) == 0:
+            print("Weed Cleanup Clear!")
+            return "clear"
+
+        # 30초가 지나면 실패
+        if time.time() - start_time > 30:
+            print("Weed Cleanup Fail!")
+            return "over"
+
+        disp.image(image)
+        time.sleep(0.01)
 
 # 디스플레이 설정
 cs_pin = DigitalInOut(board.CE0)
