@@ -1,5 +1,7 @@
 import time
 import board
+import os
+import datetime
 from digitalio import DigitalInOut, Direction, Pull
 from PIL import Image, ImageDraw, ImageFont
 from adafruit_rgb_display import st7789
@@ -24,6 +26,9 @@ class Character:
         self.level = 1
         self.experience = 0
         self.experience_to_next_level = 100
+        # 기록 관련 변수 추가
+        self.start_time = None
+        self.clear_time = None
 
     def gain_experience(self, amount):
         self.experience += amount
@@ -38,6 +43,7 @@ class Character:
         self.attack_damage += 5
         self.move_speed += 2
         self.jump_speed += 5
+        self.shield_duration += 1
         print(f"Level Up! New Level: {self.level}")
 
 class Monster:
@@ -50,15 +56,18 @@ class Monster:
         # 움직임 변수
         self.move_direction = 1 # 1: 오른쪽, -1: 왼쪽
         self.move_timer = 0
-        self.move_interval = random.randint(10, 50)  # 몬스터 방향 변경 간격
+        self.move_interval = random.randint(0, 10)  # 몬스터 방향 변경 간격
         self.move_speed = 5
         # 공격 변수
-        self.attack_damage = 10
-        self.attack_interval = random.randint(10, 30)
+        self.attack_damage = 20
+        self.attack_interval = random.randint(0, 20)
         self.attack_timer = 0
         self.attack_active = False
         self.attack_x = self.x
         self.attack_y = self.y
+        self.attack_speed = 15  # 공격 속도 증가 (10 -> 15)
+        self.multi_attack = False  # 다중 공격 가능 여부
+        self.attack_count = 0  # 연속 공격 횟수
 
     def level_up(self):
         self.hp += 50
@@ -67,21 +76,41 @@ class Monster:
         self.attack_interval = max(50, self.attack_interval - 20)
         print(f"Monster Level Up! New HP: {self.hp}")
 
-def game_end(disp, width, height, status):
-    image = Image.new("RGBA", (width, height))
-    draw = ImageDraw.Draw(image)
-    draw.rectangle((0, 0, width, height), fill=(255, 255, 255))  # 배경 흰색
-    if status == "clear":
-        draw.text((width // 2 - 50, height // 2 - 10), "Game Clear!", fill="black", font=font)
-    elif status == "over":
-        draw.text((width // 2 - 50, height // 2 - 10), "Game Over!", fill="red", font=font)
-    draw.text((width // 2 - 50, height // 2 + 20), "Press A to Restart", fill="black", font=font)
-    disp.image(image)
+def save_record(clear_time):
+    with open('game_records.txt', 'a') as f:
+        f.write(f"{clear_time.total_seconds()}\n")
 
-    while True:
-        if not button_A.value:
-            return  # A 버튼이 눌리면 함수 종료
-        time.sleep(0.1)
+def load_records():
+    if not os.path.exists('game_records.txt'):
+        return []
+    with open('game_records.txt', 'r') as f:
+        records = f.readlines()
+    records = [float(record.strip()) for record in records if record.strip()]
+    top_three_records = sorted(records)[:3]
+    return [round(record, 2) for record in top_three_records]
+
+def draw_start_screen(disp, width, height):
+    start_image = Image.open("../assets/start_screen.png").convert("RGBA").resize((width, height))
+    draw = ImageDraw.Draw(start_image)
+    
+    # 작은 폰트 크기 사용 (15)
+    font = ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', size=15)
+    
+    # 기록 표시 - 오른쪽 아래에 정렬
+    top_three_records = load_records()
+    for i, record in enumerate(top_three_records):
+        text = f"{i+1}: {record}s"
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        # 위치 계산: 오른쪽 여백 10px, 아래 여백 10px
+        x = width - text_width - 10
+        y = height - (len(top_three_records) - i) * (text_height + 5) - 10
+        
+        draw.text((x, y), text, font=font, fill="pink")
+    
+    disp.image(start_image)
 
 def character_select(disp, width, height):
     # 캐릭터 이미지 로드
@@ -111,7 +140,7 @@ def character_select(disp, width, height):
         # 화면 초기화
         draw.rectangle((0, 0, width, height), fill=(255, 255, 255))  # 배경 흰색
         draw.text((width // 2 - 50, 20), "Select Your Character", fill="black")
-        draw.text((width // 2 - 50, 40), "Press U to Confirm", fill="black")
+        draw.text((width // 2 - 50, 40), "Press B to Confirm", fill="black")
 
         # 1행 캐릭터 배치
         for i in range(row1):
@@ -138,14 +167,14 @@ def character_select(disp, width, height):
                 )
             image.paste(characters[i].image, (x_position, y_position), mask=characters[i].image)
 
-        # L 버튼: 왼쪽 이동, R 버튼: 오른쪽 이동, U 버튼: 선택
+        # L 버튼: 왼쪽 이동, R 버튼: 오른쪽 이동, B 버튼: 선택
         if not button_L.value:
             selected_index = (selected_index - 1) % num_characters
             time.sleep(0.2)  # 버튼 반복 방지
         if not button_R.value:
             selected_index = (selected_index + 1) % num_characters
             time.sleep(0.2)  # 버튼 반복 방지
-        if not button_U.value:  # 선택 버튼
+        if not button_B.value:  # 선택 버튼
             print(f"Character {selected_index + 1} selected!")
             return characters[selected_index]
 
@@ -154,6 +183,9 @@ def character_select(disp, width, height):
         time.sleep(0.01)
 
 def main(disp, width, height, character):
+    # 게임 시작 시간 기록
+    character.start_time = datetime.datetime.now()
+
     # 캐릭터 설정
     character_size = 60
     sub_character_size = 100
@@ -232,9 +264,11 @@ def main(disp, width, height, character):
 
             # A 버튼이 눌렸는지 확인
             if not button_A.value:
-                attack(disp, width, height, character, character_size, ground)
-                print("Attack Start!")
-
+                result = attack(disp, width, height, character, character_size, ground)
+                if result in ["clear", "over"]:
+                    if game_end(disp, width, height, result):
+                        return  # 메인으로 돌아가기
+                    
         disp.image(image)
 
         time.sleep(0.01)
@@ -289,46 +323,50 @@ def attack(disp, width, height, character, character_size, ground):
         # 몬스터 움직임 로직
         monster.move_timer += 1
         if monster.move_timer >= monster.move_interval:
-            monster.move_direction *= -1  # 방향 변경
-            monster.move_timer = 0
-            monster.move_interval = random.randint(10, 50)
-            print("Monster Direction Changed!")
-
-        # 몬스터 이동
-        monster.x += monster.move_direction * 5
-        monster.x = max(width - monster_size * 2, min(monster.x, width - monster_size))
-
-        # 몬스터 공격 로직
-        monster.attack_timer += 1
-        if monster.attack_timer >= monster.attack_interval:
+            monster.attack_timer = 0
             monster.attack_active = True
             monster.attack_x = monster.x
             monster.attack_y = monster.y
-            monster.attack_timer = 0
-            monster.attack_interval = random.randint(100, 300)
+            monster.attack_interval = random.randint(50, 100)  # 공격 간격 감소
+            monster.attack_count = random.randint(1, 3)  # 1~3회 연속 공격
+            monster.multi_attack = True
             print("Monster Attack!")
 
         # 몬스터 공격 이동
         if monster.attack_active:
-            monster.attack_x -= 10  # 공격 이미지 이동 속도
-            print(f"Monster Attack: {monster.attack_x}")
-
+            monster.attack_x -= monster.attack_speed  # 공격 이동 속도로 왼쪽으로 이동
+            
             # 공격과 캐릭터 충돌 체크
             if (monster.attack_x < character.x + character.size[0] and 
                 monster.attack_x + 80 > character.x and 
                 monster.attack_y < character.y + character.size[1] and 
                 monster.attack_y + 80 > character.y):
                 
-                # 방어 상태 체크
                 if not character.is_shielding:
                     character.hp -= monster.attack_damage
                     print(f"Player HP: {character.hp}")
 
                 monster.attack_active = False
+                
+                # 다중 공격 처리
+                if monster.multi_attack and monster.attack_count > 0:
+                    monster.attack_count -= 1
+                    monster.attack_active = True
+                    monster.attack_x = monster.x
+                    print(f"Continuous Attack! Remaining: {monster.attack_count}")
+                else:
+                    monster.multi_attack = False
 
-            # 공격이 화면 왼쪽 끝에 도달하면 비활성화
+            # 공격이 화면 왼쪽 끝에 도달하면 처리
             if monster.attack_x < 0:
                 monster.attack_active = False
+                # 다중 공격 처리
+                if monster.multi_attack and monster.attack_count > 0:
+                    monster.attack_count -= 1
+                    monster.attack_active = True
+                    monster.attack_x = monster.x
+                else:
+                    monster.multi_attack = False
 
         # 공격 및 방패 처리
         if character.is_attacking:
@@ -397,17 +435,31 @@ def attack(disp, width, height, character, character_size, ground):
         # 게임 클리어 체크
         if monster.hp <= 0:
             print("Game Clear!")
-            game_end(disp, width, height, "clear")
-            break
+            return "clear"
 
         # 게임 오버 체크
         if character.hp <= 0:
             print("Game Over!")
             game_end(disp, width, height, "over")
-            break
+            character.clear_time = datetime.datetime.now() - character.start_time
+            save_record(character.clear_time)
+            return "over"
 
         disp.image(image)
         time.sleep(0.01)
+
+def game_end(disp, width, height, status):
+    if status == "clear":
+        image = Image.open("../assets/game_clear.png").convert("RGBA").resize((width, height))
+    else:
+        image = Image.open("../assets/game_over.png").convert("RGBA").resize((width, height))
+    disp.image(image)
+
+    while True:
+        if not button_A.value:
+            return True
+        time.sleep(0.1)
+
 
 # 디스플레이 설정
 cs_pin = DigitalInOut(board.CE0)
@@ -469,5 +521,14 @@ print(f"width, height = {width}, {height}")
 image = Image.new("RGBA", (width, height))
 draw = ImageDraw.Draw(image)
 
-character = character_select(disp, width, height)
-main(disp, width, height, character)
+# character = character_select(disp, width, height)
+# main(disp, width, height, character)
+
+# 메인 실행
+if __name__ == "__main__":
+    draw_start_screen(disp, width, height)
+    while True:
+        if not button_A.value:
+            character = character_select(disp, width, height)
+            main(disp, width, height, character)
+        time.sleep(0.1)
