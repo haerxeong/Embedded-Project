@@ -112,6 +112,15 @@ def draw_start_screen(disp, width, height):
     
     disp.image(start_image)
 
+def draw_tutorial_screen(disp, width, height):
+    tutorial_image = Image.open("../assets/tutorial.png").convert("RGBA").resize((width, height))
+    disp.image(tutorial_image)
+    
+    while True:
+        if not button_A.value:
+            return  # A 버튼이 눌리면 함수 종료
+        time.sleep(0.1)
+
 def character_select(disp, width, height):
     # 캐릭터 이미지 로드
     characters = [
@@ -135,13 +144,15 @@ def character_select(disp, width, height):
     margin = 10  # 캐릭터 간 간격
     char_width = 50  # 캐릭터 이미지 너비
     char_height = 50  # 캐릭터 이미지 높이
+
+    # select_font 이미지 로드
+    select_font_image = Image.open("../assets/select_font.png").convert("RGBA").resize((width - 20, 60))
     
     while True:
         # 화면 초기화
         draw.rectangle((0, 0, width, height), fill=(255, 255, 255))  # 배경 흰색
-        draw.text((width // 2 - 50, 20), "Select Your Character", fill="black")
-        draw.text((width // 2 - 50, 40), "Press B to Confirm", fill="black")
-
+        image.paste(select_font_image, (0, 0), mask=select_font_image)  # select_font 이미지 그리기
+        
         # 1행 캐릭터 배치
         for i in range(row1):
             x_position = (width // 2 - ((row1 * (char_width + margin)) - margin)) // 2 + i * (char_width + margin) + 50 # 50은 여백
@@ -542,6 +553,7 @@ if __name__ == "__main__":
     draw_start_screen(disp, width, height)
     while True:
         if not button_A.value:
+            draw_tutorial_screen(disp, width, height)
             character = character_select(disp, width, height)
             main(disp, width, height, character)
         time.sleep(0.1)
