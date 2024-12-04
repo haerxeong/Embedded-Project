@@ -323,10 +323,23 @@ def attack(disp, width, height, character, character_size, ground):
         # 몬스터 움직임 로직
         monster.move_timer += 1
         if monster.move_timer >= monster.move_interval:
-            monster.attack_timer = 0
+            monster.move_direction *= -1  # 방향 변경
+            monster.move_timer = 0
+            monster.move_interval = random.randint(10, 50)
+            print("Monster Direction Changed!")
+        
+        # 몬스터 이동
+        monster.x += monster.move_direction * 5
+        monster.x = max(width - monster_size * 2, min(monster.x, width - monster_size))
+
+        # 몬스터 공격 로직
+        monster.attack_timer += 1
+        if monster.attack_timer >= monster.attack_interval:
             monster.attack_active = True
             monster.attack_x = monster.x
             monster.attack_y = monster.y
+            monster.attack_timer = 0
+            monster.attack_interval = random.randint(100, 300)
             monster.attack_interval = random.randint(50, 100)  # 공격 간격 감소
             monster.attack_count = random.randint(1, 3)  # 1~3회 연속 공격
             monster.multi_attack = True
@@ -361,7 +374,7 @@ def attack(disp, width, height, character, character_size, ground):
             if monster.attack_x < 0:
                 monster.attack_active = False
                 # 다중 공격 처리
-                if monster.multi_attack and monster.attack_count > 0:
+                if monster.multi_attack and monster.attack_count:
                     monster.attack_count -= 1
                     monster.attack_active = True
                     monster.attack_x = monster.x
