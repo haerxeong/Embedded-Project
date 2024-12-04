@@ -472,6 +472,7 @@ def attack(disp, width, height, character, character_size, ground):
         if monster.hp <= 0:
             print("Game Clear!")
             character.level_up() # 레벨업
+            monster.level_up()  # 몬스터 레벨업 -> 게임 난이도 증가
             return "clear"
 
         # 게임 오버 체크
