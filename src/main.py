@@ -218,15 +218,16 @@ def main(disp, width, height, character):
     global font
     font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 15)
 
+    # 임무 전달 이미지
+    mission_image = Image.open("../assets/ment.png").convert("RGBA").resize((width, 50))
+
     # 게임 루프
     while True:
         # 입력 처리
         if not button_L.value:
             character.x -= character.move_speed
-            print("왼쪽 이동...")
         if not button_R.value:
             character.x += character.move_speed
-            print("오른쪽 이동...")
         if not button_U.value:
             character.is_jumping = True
             character.velocity_y = -character.jump_speed
@@ -261,17 +262,7 @@ def main(disp, width, height, character):
             character.y + character.size[1] > sub_character_y):
 
             # 미션
-            text = "Mission: Defeat the monsters!"
-            text_bbox = draw.textbbox((0, 0), text, font=font)
-            text_width = text_bbox[2] - text_bbox[0]
-            text_height = text_bbox[3] - text_bbox[1]
-            draw.text(((width - text_width) // 2, 10), text, font=font, fill="black")
-            
-            confirm_text = "Confirm: press (A)"
-            confirm_text_bbox = draw.textbbox((0, 0), confirm_text, font=font)
-            confirm_text_width = confirm_text_bbox[2] - confirm_text_bbox[0]
-            confirm_text_height = confirm_text_bbox[3] - confirm_text_bbox[1]
-            draw.text(((width - confirm_text_width) // 2, 40), confirm_text, font=font, fill="black")
+            image.paste(mission_image, (0, 0), mask=mission_image)
 
             # A 버튼이 눌렸는지 확인
             if not button_A.value:
