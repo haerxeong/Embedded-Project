@@ -13,7 +13,7 @@ class Character:
         self.x = 0
         self.y = 0
         self.size = size
-        self.hp = 100
+        self.hp = 300
         self.attack_damage = 20
         self.is_attacking = False
         self.shield_duration = 3
@@ -69,7 +69,7 @@ class Monster:
         self.x = 0
         self.y = 0
         self.size = size
-        self.hp = 100
+        self.hp = 300  # 체력 증가
         # 움직임 변수
         self.move_direction = 1 # 1: 오른쪽, -1: 왼쪽
         self.move_timer = 0
@@ -77,7 +77,7 @@ class Monster:
         self.move_speed = 5
         # 공격 변수
         self.attack_damage = 20
-        self.attack_interval = random.randint(0, 20)
+        self.attack_interval = random.randint(10, 30)  # 공격 간격 감소
         self.attack_timer = 0
         self.attack_active = False
         self.attack_x = self.x
@@ -90,7 +90,7 @@ class Monster:
         self.hp += 50
         self.attack_damage += 5
         self.move_speed += 1
-        self.attack_interval = max(50, self.attack_interval - 20)
+        self.attack_interval = max(10, self.attack_interval - 5)  # 공격 간격 감소
         print(f"Monster Level Up! New HP: {self.hp}")
 
 def save_record(level):
@@ -287,7 +287,9 @@ def main(disp, width, height, character):
                     result = attack(disp, width, height, character, character_size, ground)
                     if result in ["clear", "over"]:
                         if game_end(disp, width, height, result):
-                            continue  # 처음으로 돌아가기
+                            continue  # 메인으로 돌아가기
+                        else:
+                            return
             else:
                 image.paste(new_mission_image, (0, 0), mask=mission_image)
 
@@ -295,12 +297,16 @@ def main(disp, width, height, character):
                     result = weedCleanup(disp, width, height, character)
                     if result in ["clear", "over"]:
                         if game_end(disp, width, height, result):
-                            continue  # 처음으로 돌아가기
+                            continue  # 메인으로 돌아가기
+                        else: 
+                            return
                 elif not button_B.value:
                     result = attack(disp, width, height, character, character_size, ground)
                     if result in ["clear", "over"]:
                         if game_end(disp, width, height, result):
-                            continue
+                            continue  # 메인으로 돌아가기
+                        else:  
+                            return
                     
         disp.image(image)
 
@@ -372,8 +378,7 @@ def attack(disp, width, height, character, character_size, ground):
             monster.attack_x = monster.x
             monster.attack_y = monster.y
             monster.attack_timer = 0
-            monster.attack_interval = random.randint(100, 300)
-            monster.attack_interval = random.randint(50, 100)  # 공격 간격 감소
+            monster.attack_interval = random.randint(10, 30)  # 공격 간격 감소
             monster.attack_count = random.randint(1, 3)  # 1~3회 연속 공격
             monster.multi_attack = True
             print("Monster Attack!")
@@ -505,7 +510,7 @@ def game_end(disp, width, height, status):
 
     while True:
         if not button_A.value:
-            return True
+            return status == "clear"
         time.sleep(0.1)
 
 def weedCleanup(disp, width, height, character):
@@ -605,6 +610,7 @@ def weedCleanup(disp, width, height, character):
         # 30초가 지나면 실패
         if time.time() - start_time > 30:
             print("Weed Cleanup Fail!")
+            save_record(character.level)  # 레벨 저장
             return "over"
 
         disp.image(image)
@@ -680,5 +686,7 @@ if __name__ == "__main__":
         if not button_A.value:
             draw_tutorial_screen(disp, width, height)
             character = character_select(disp, width, height)
-            main(disp, width, height, character)
+            result = main(disp, width, height, character)
+            if result == "over":
+                continue  # 캐릭터 선택부터 다시 시작
         time.sleep(0.1)
