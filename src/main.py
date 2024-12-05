@@ -287,27 +287,30 @@ def main(disp, width, height, character):
                 if not button_A.value:
                     result = attack(disp, width, height, character, character_size, ground)
                     if result in ["clear", "over"]:
-                        if game_end(disp, width, height, result):
+                        game_result = game_end(disp, width, height, result)
+                        if game_result == "restart":
+                            return "restart"
+                        elif game_result == "continue":
                             continue  # 메인으로 돌아가기
-                        else:
-                            return
             else:
                 image.paste(new_mission_image, (0, 0), mask=mission_image)
 
                 if not button_A.value:
                     result = weedCleanup(disp, width, height, character)
                     if result in ["clear", "over"]:
-                        if game_end(disp, width, height, result):
+                        game_result = game_end(disp, width, height, result)
+                        if game_result == "restart":
+                            return "restart"
+                        elif game_result == "continue":
                             continue  # 메인으로 돌아가기
-                        else: 
-                            return
                 elif not button_B.value:
                     result = attack(disp, width, height, character, character_size, ground)
                     if result in ["clear", "over"]:
-                        if game_end(disp, width, height, result):
+                        game_result = game_end(disp, width, height, result)
+                        if game_result == "restart":
+                            return "restart"
+                        elif game_result == "continue":
                             continue  # 메인으로 돌아가기
-                        else:  
-                            return
                     
         disp.image(image)
 
@@ -436,7 +439,7 @@ def attack(disp, width, height, character, character_size, ground):
         # 공격 및 방패 처리
         if character.is_attacking:
             character.attack_x += 15  # 공격 이미지가 왼쪽으로 이동
-            if character.attack_x > monster.x - monster.size[0]:  # `monster` 위치에 도달하면 멈춤
+            if character.attack_x > monster.x - monster.size[0] + 20:  # `monster` 위치에 도달하면 멈춤
                 monster.hp -= character.attack_damage
                 character.is_attacking = False
                 character.gain_experience(20)  # 경험치 획득
@@ -524,7 +527,13 @@ def game_end(disp, width, height, status):
 
     while True:
         if not button_A.value:
-            return status == "clear"
+            if status == "clear":
+                return "continue"
+            else:
+                return "restart"
+        elif not button_B.value:
+            save_record(character.level)  # 레벨 저장
+            game_exit(disp, width, height)  # 프로그램 종료
         time.sleep(0.1)
 
 def weedCleanup(disp, width, height, character):
@@ -636,6 +645,13 @@ def weedCleanup(disp, width, height, character):
             time.sleep(0.2)  # 200ms 지연 시간 추가
             character.x = 0  # 캐릭터 위치 초기화
 
+def game_exit(disp, width, height):
+    image = Image.open("../assets/game_end.png").convert("RGBA").resize((width, height))
+    disp.image(image)
+
+    exit()  # 프로그램 종료
+    time.sleep(0.1)
+
 # 디스플레이 설정
 cs_pin = DigitalInOut(board.CE0)
 dc_pin = DigitalInOut(board.D25)
@@ -701,12 +717,12 @@ draw = ImageDraw.Draw(image)
 
 # 메인 실행
 if __name__ == "__main__":
-    draw_start_screen(disp, width, height)
     while True:
+        draw_start_screen(disp, width, height)
         if not button_A.value:
             draw_tutorial_screen(disp, width, height)
             character = character_select(disp, width, height)
             result = main(disp, width, height, character)
-            if result == "over":
-                continue  # 캐릭터 선택부터 다시 시작
+            if result == "restart":
+                continue  # 게임 처음부터 다시 시작
         time.sleep(0.1)
