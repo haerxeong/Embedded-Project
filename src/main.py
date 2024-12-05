@@ -10,6 +10,7 @@ import random
 class Character:
     def __init__(self, image_path, size):
         self.image = Image.open(image_path).convert("RGBA").resize(size)
+        self.name = image_path.split('/')[-1].split('_')[0]  # 캐릭터 이름 추출
         self.x = 0
         self.y = 0
         self.size = size
@@ -320,7 +321,16 @@ def attack(disp, width, height, character, character_size, ground):
     monster_attack_image = Image.open('../assets/moster_attack_effect.png').convert("RGBA").resize((80, 80))
     
     shield_image = Image.open("../assets/shield.png").convert("RGBA").resize((character_size + 50, character_size + 50))
-    attack_image = Image.open("../assets/attack_effect1.jpg").convert("RGBA").resize((80, 80))
+    
+    # 캐릭터 이름 사용
+    attack_image_path = f"../assets/{character.name}_attack_effect.png"
+    
+    # 쿠리만주의 경우 다른 크기로 이미지 로드 (너무 큼)
+    if character.name == "kurimanju":
+        attack_image = Image.open(attack_image_path).convert("RGBA").resize((50, 50))
+    else:
+        attack_image = Image.open(attack_image_path).convert("RGBA").resize((80, 80))
+    
     image = Image.new("RGBA", (width, height))
     draw = ImageDraw.Draw(image)
     
@@ -605,16 +615,22 @@ def weedCleanup(disp, width, height, character):
         # 모든 잡초를 제거하면 클리어
         if len(weeds) == 0:
             print("Weed Cleanup Clear!")
+            character.hp += score * 10  # 스코어 * 10 만큼 캐릭터의 HP 증가
             return "clear"
 
         # 30초가 지나면 실패
-        if time.time() - start_time > 30:
+        if elapsed_time > 30:
             print("Weed Cleanup Fail!")
             save_record(character.level)  # 레벨 저장
             return "over"
 
         disp.image(image)
         time.sleep(0.01)
+
+        # A 버튼 디바운스 처리
+        if not button_A.value:
+            time.sleep(0.2)  # 200ms 지연 시간 추가
+            character.x = 0  # 캐릭터 위치 초기화
 
 # 디스플레이 설정
 cs_pin = DigitalInOut(board.CE0)
