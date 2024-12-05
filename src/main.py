@@ -316,10 +316,14 @@ def main(disp, width, height, character):
 def attack(disp, width, height, character, character_size, ground):
     monster_size = 70
 
-    monster = Monster("../assets/kimera.png", (monster_size, monster_size))
+    # 몬스터 이미지 경로 리스트
+    monster_images = ["../assets/kimera.png", "../assets/kabutomushi.png"]
+    # 랜덤하게 몬스터 이미지 선택
+    monster_image_path = random.choice(monster_images)
+    monster = Monster(monster_image_path, (monster_size, monster_size))
     monster.size = ((monster_size, monster_size))
     monster_attack_image = Image.open('../assets/moster_attack_effect.png').convert("RGBA").resize((80, 80))
-    
+
     shield_image = Image.open("../assets/shield.png").convert("RGBA").resize((character_size + 50, character_size + 50))
     
     # 캐릭터 이름 사용
@@ -542,7 +546,7 @@ def weedCleanup(disp, width, height, character):
 
     while True:
         # 화면 초기화
-        image = Image.new("RGBA", (width, height), (135, 206, 235, 255))  # 하늘색 배경
+        image = Image.new("RGBA", (width, height), (73, 144, 88, 255))  # 초록색 배경
         draw = ImageDraw.Draw(image)
 
         # 잡초 그리기
